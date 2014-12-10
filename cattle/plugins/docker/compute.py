@@ -11,6 +11,8 @@ from cattle.type_manager import get_type_list
 from cattle import utils
 from docker.errors import APIError
 
+
+
 log = logging.getLogger('docker')
 
 
@@ -235,6 +237,11 @@ class DockerCompute(KindBasedMixin, BaseComputeDriver):
                 start_config['volumes_from'] = container_names
         except KeyError:
             pass
+
+        log.warn('\n\n\n INSTANCE FIELDS:\n %s\n\n\n' % instance.data.fields)
+
+        attach_stdin = instance.data.fields['attachStdin']
+        config['stdin_open'] = attach_stdin
 
         self._setup_command(config, instance)
         self._setup_ports(config, instance)
