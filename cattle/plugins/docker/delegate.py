@@ -4,16 +4,15 @@ import re
 from urlparse import urlparse
 
 from cattle import Config
-from cattle.utils import reply
-from .util import add_to_env
-from .compute import DockerCompute
 from cattle.agent.handler import BaseHandler
 from cattle.progress import Progress
 from cattle.type_manager import get_type, MARSHALLER
+from cattle.utils import reply
+from .compute import DockerCompute
+from .util import add_to_env
 from . import docker_client
 
 import requests
-
 
 log = logging.getLogger('docker')
 
@@ -27,24 +26,38 @@ def _make_session():
 
 
 _SESSION = _make_session()
-regex = re.compile(';.*')
+_REGEX = re.compile(';.*')
+
 
 def container_exec(ip, instanceData, event):
     marshaller = get_type(MARSHALLER)
     c = docker_client()
-    name = marshaller.to_string(event.name)
-    cmd = '{0}' + regex.sub('', name)
+    executor = Config.home() + '/events/executor.py'
+    cmd = '{0}/events/' + _REGEX.sub('', event.name)
     cmd = cmd.format(Config.home())
-    clientSock = c.execute(instanceData.uuid,
-                           cmd, stream=True,
-                           tty=True)
-    data = str().join([str(x) for x in clientSock.read()])
-    if data is None:
-        return 0, None, None
-    result_data = data.decode('ascii')
-    if result_data[0] == '{':
+    cmd = [executor, cmd]
+    cmd_id = c.executeCreate(instanceData.uuid, cmd,
+                             stdin=True, stream=True)
+    client_sock = None
+    data = ''
+    try:
+        client_sock = c.executeStart(cmd_id, stream=True)
+        client_sock.write(marshaller.to_string(event))
+        data = ''.join([str(x) for x in client_sock.read()])
+        client_sock.shutdown(0)
+    except Exception as e:
+        log.error(e)
+    finally:
+        client_sock.close()
+    result_data = None
+    try:
+        result_data = data.decode('utf-8')
         result_data = marshaller.from_string(result_data)
-    return 0, result_data, result_data
+        exitCode = result_data['exitCode']
+        return exitCode, result_data['output'], result_data['data']
+    except Exception as e:
+        log.error(e)
+        return 1, result_data, None
 
 
 class DockerDelegate(BaseHandler):
