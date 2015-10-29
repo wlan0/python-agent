@@ -30,6 +30,20 @@ def test_volume_deactivate(agent, responses):
 
 
 @if_docker
+def test_instance_activate_volume_driver(agent, responses):
+    delete_container('/c861f990-4472-4fa1-960f-65171b544c28')
+
+    def pre(req):
+        instance = req['data']['instanceHostMap']['instance']
+        instance['volumeDriver'] = 'local'
+
+    def post(req, resp):
+        instance_activate_common_validation(resp)
+
+    event_test(agent, 'docker/instance_activate', pre_func=pre, post_func=post)
+
+
+@if_docker
 def test_instance_activate_no_mac_address(agent, responses):
     delete_container('/c861f990-4472-4fa1-960f-65171b544c28')
 
