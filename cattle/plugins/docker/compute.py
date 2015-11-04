@@ -602,8 +602,8 @@ class DockerCompute(KindBasedMixin, BaseComputeDriver):
                                                         command,
                                                         **create_config)
                 try:
-                    config['VolumeDriver'] = instance.volumeDriver
-                except AttributeError:
+                    config['VolumeDriver'] = instance.data.fields['volumeDriver']
+                except (KeyError, AttributeError):
                     pass
                 container = client.create_container_from_config(config, name)
             except APIError as e:

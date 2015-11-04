@@ -8,6 +8,8 @@ from .common_fixtures import *  # NOQA
 from .docker_common import *  # NOQA
 from docker.errors import APIError
 
+import json
+
 
 @pytest.fixture(scope='module')
 def pull_images():
@@ -35,9 +37,12 @@ def test_instance_activate_volume_driver(agent, responses):
 
     def pre(req):
         instance = req['data']['instanceHostMap']['instance']
-        instance['volumeDriver'] = 'local'
+        instance['data']['fields']['volumeDriver'] = 'local'
 
     def post(req, resp):
+        instance_data = resp['data']['instanceHostMap']['instance']['+data']
+        docker_inspect = instance_data['dockerInspect']
+        assert docker_inspect['HostConfig']['VolumeDriver'] == 'local'
         instance_activate_common_validation(resp)
 
     event_test(agent, 'docker/instance_activate', pre_func=pre, post_func=post)
@@ -1390,3 +1395,4 @@ def test_instance_links_net_host(agent, responses):
 
     event_test(agent, 'docker/instance_activate_links_no_service',
                       pre_func=pre, post_func=post, diff=False)
+
